@@ -88,7 +88,7 @@ class test_httpserver(unittest.TestCase):
 
     def test_os_version(self):
         path = self.path_by_nick(self.os_api, "getOSversion")
-        self.assertRegexpMatches(self.curl(path), r"v0\.\d+(-rc\d+)?-\d+-[0-9a-z]+" , path)
+        self.assertRegexpMatches(self.curl(path), r"v0\.\d+(-rc\d+)?(-\d+-[0-9a-z]+)?" , path)
 
     def test_manufactor(self):
         self.validate_path(self.os_api, "getOSmanufacturer", "cloudius-systems")
@@ -157,6 +157,58 @@ class test_httpserver(unittest.TestCase):
         usage1 = next((item for item in mbean1 if item["name"] == "UsageThreshold"), None)
         self.assertEqual(usage["value"] + 1, usage1["value"])
 
+    def test_list_file_cmd(self):
+        path = "/file"
+        lst = self.curl(path + "/etc?op=LISTSTATUS")
+        hosts = next((item for item in lst if item["pathSuffix"] == "hosts"), None)
+        self.assertEqual(hosts["owner"], "osv")
+
+    def test_file_status_cmd(self):
+        path = "/file"
+        hosts = self.curl(path + "/etc/hosts?op=GETFILESTATUS")
+        self.assertEqual(hosts["type"], "FILE")
+
+    def test_put_file_cmd(self):
+        path = "/file"
+        self.curl_command(path + "/etc/hosts?op=COPY&destination="+urllib.quote("/etc/hosts1"), 'PUT')
+        hosts = self.curl(path + "/etc/hosts1?op=GETFILESTATUS")
+        self.assertEqual(hosts["type"], "FILE")
+        self.curl_command(path + "/etc/hosts1?op=RENAME&destination="+urllib.quote("/etc/hosts2"), 'PUT')
+        hosts = self.curl(path + "/etc/hosts2?op=GETFILESTATUS")
+        self.assertEqual(hosts["type"], "FILE")
+        hosts = self.curl(path + "/etc/hosts1?op=GETFILESTATUS")
+        self.assertEqual(hosts, '')
+        self.curl_command(path + "/etc/hosts2?op=DELETE", 'DELETE')
+        hosts = self.curl(path + "/etc/hosts2?op=GETFILESTATUS")
+        self.assertEqual(hosts, '')
+
+    def make_temp_file(self):
+        f = open('temp-test-file.txt', 'w')
+        for x in range(0, 128000):
+            f.write(str(x))
+            f.write("\n")
+        f.close()
+
+    def test_file_upload(self):
+        self.make_temp_file()
+        path = "/file"
+        target = path + "/usr/mgmt/test-file.txt"
+        cmd = "curl -F filedata=@temp-test-file.txt " + self.get_url(target)
+        os.system(cmd)
+        hosts = self.curl(target + "?op=GETFILESTATUS")
+        self.assertEqual(hosts["type"], "FILE")
+        os.remove('temp-test-file.txt')
+        cmd = "wget -O tmp-test-dwnld.txt " + self.get_url(target) + "?op=GET "
+        os.system(cmd)
+        count = 0
+        with open('tmp-test-dwnld.txt', 'r') as f:
+            for read_data in f:
+                self.assertEqual(str(count)+'\n', read_data)
+                count = count + 1
+        self.assertEqual(count,128000)
+        f.closed
+        os.remove('tmp-test-dwnld.txt')
+
     @classmethod
     def curl(cls, api, post=False):
         url = cls.get_url(api)
@@ -171,6 +223,14 @@ class test_httpserver(unittest.TestCase):
             except:
                 return ""
         return json.load(response)
+
+    @classmethod
+    def curl_command(cls, api, command):
+        url = cls.get_url(api)
+        opener = urllib2.build_opener(urllib2.HTTPHandler)
+        request = urllib2.Request(url, data='')
+        request.get_method = lambda: command
+        opener.open(request)
 
     @classmethod
     def exec_os(cls):
@@ -199,6 +259,7 @@ class test_httpserver(unittest.TestCase):
             cls.os_process = cls.exec_os()
         cls.os_api = cls.get_json_api("os.json")
         cls.jvm_api = cls.get_json_api("jvm.json")
+        cls.file_api = cls.get_json_api("file.json")
         retry = 10
         while not cls.is_reachable():
             time.sleep(1)

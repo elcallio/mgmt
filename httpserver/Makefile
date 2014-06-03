@@ -27,10 +27,11 @@ LIBS = -lpthread -lboost_program_options-mt $(boost-libs)
 quiet = $(if $V, $1, @echo " $2"; $1)
 very-quiet = $(if $V, $1, @$1)
 
+DEPS := $(OBJ_FILES:.o=.d)
 
 module: all swagger-ui-lib
 
-all: init api-doc/.git $(TARGET).so
+all: init $(TARGET).so
 
 init:
 	$(call very-quiet, mkdir -p obj)
@@ -46,25 +47,27 @@ $(TARGET): $(OBJ_FILES) $(STUB_FILES)
 $(TARGET).so: $(OBJ_FILES)
 	$(call quiet, $(CXX) $(CXXFLAGS) -shared -o $(TARGET).so $^, LINK $@)
 
-autogen/%.cc: api-doc/listings/%
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif
+
+autogen/%.cc: api-doc/listings/% json2code.py
 	$(call quiet,./json2code.py -f $< -ns json, GEN $@)
 
 obj/%.o: %.cc
-	$(call quiet, $(CXX) $(CXXFLAGS) -c -o $@ $<, CXX $@)
+	$(call quiet, $(CXX) $(CXXFLAGS) -c -MMD  -o $@ $<, CXX $@)
 
 clean:
 	$(call quiet, $(RM) $(TARGET), CLEAN)
 	$(call very-quiet, $(RM) $(TARGET).so)
 	$(call very-quiet, $(RM) -rf obj/*)
+	$(call very-quiet, $(RM) -rf autogen/*)
 
 check:
 	cd ../.. && mgmt/httpserver/tests/testhttpserver.py
 
 swagger-ui-lib: swagger-ui/.git
 .PHONY: swagger-ui-lib
-
-api-doc/.git:
-	cd .. && git submodule update --init -f httpserver/api-doc
 
 swagger-ui/.git:
 	cd .. && git submodule update --init -f httpserver/swagger-ui
