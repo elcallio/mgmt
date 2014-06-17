@@ -154,10 +154,14 @@ def add_path(f, path, details):
                 fprint(f, spacing, '  ->pushparam("', param, '",true)')
             else:
                 fprint(f, spacing, '  ->pushparam("', param, '")')
-        fprint(f, ";")
     else:
         fprint(f, spacing, 'path_description::add_path("', clear_path_ending(path), '",',
-           details["method"], ',"', details["nickname"], '");')
+           details["method"], ',"', details["nickname"], '")')
+    if "parameters" in details:
+        for param in details["parameters"]:
+            if "required" in param and param["required"] and  param["paramType"] == "query":
+                fprint(f, spacing, '  ->pushmandatory_param("', param["name"], '")')
+    fprint(f, spacing, ";")
 
 
 def get_base_name(param):
@@ -202,7 +206,7 @@ def create_h_file(data, hfile_name, api_name, init_method):
     hfile = open(config.outdir + "/" + hfile_name, "w")
     print_h_file_headers(hfile, api_name)
     add_include(hfile, ['<string>', '"' + config.jsoninc +
-                       'json_elements.hh"'])
+                       'json_elements.hh"', '"path_holder.hh"'])
     open_namespace(hfile, "httpserver")
     open_namespace(hfile)
     if "models" in data:
@@ -244,7 +248,7 @@ def create_h_file(data, hfile_name, api_name, init_method):
     for item in data["apis"]:
         if "operations" in item:
             for oper in item["operations"]:
-                fprint(hfile, 'static const std::string ', oper["nickname"], ' = "', oper["nickname"], '";')
+                fprint(hfile, 'static const path_holder ', oper["nickname"], '("', oper["nickname"], '");')
                 if "parameters" in oper:
                     for param in oper["parameters"]:
                         if "enum" in param:

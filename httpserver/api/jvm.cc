@@ -18,6 +18,7 @@ namespace jvm {
 
 using namespace json;
 using namespace std;
+using namespace jvm_json;
 
 static void validate_jvm()
 {
@@ -28,13 +29,13 @@ static void validate_jvm()
 
 class get_jmx_handler : public handler_base {
     bool handle(const std::string& path, parameters* parts,
-            const http::server::request& req, http::server::reply& rep)
+                const http::server::request& req, http::server::reply& rep)
     override
     {
         validate_jvm();
         rep.content.append(
-                java_api::instance().get_mbean_info(
-                        (*parts)["mbean"].substr(1)));
+            java_api::instance().get_mbean_info(
+                (*parts)["mbean"].substr(1)));
         set_headers(rep, "json");
         return true;
     }
@@ -42,12 +43,12 @@ class get_jmx_handler : public handler_base {
 
 class set_jmx_handler : public handler_base {
     bool handle(const std::string& path, parameters* parts,
-            const http::server::request& req, http::server::reply& rep)
+                const http::server::request& req, http::server::reply& rep)
     override
     {
         if (!java_api::instance().is_valid()) {
             reply400(rep, http::server::reply::status_type::not_found,
-                    "JVM is not available");
+                     "JVM is not available");
             return false;
         }
         string value = req.get_query_param("value");
@@ -70,55 +71,43 @@ class set_jmx_handler : public handler_base {
 void init(routes& routes)
 {
     jvm_json_init_path();
-    function_handler* java_version =
-            new function_handler(
-                    [](const_req req)
-                    {
-                        validate_jvm();
-                        return formatter::to_json(java_api::instance().get_system_property("java.version") );
-                    }, "json");
-    routes.add_path("getJavaVersion", java_version);
+    getJavaVersion.set_handler("json", [](const_req req)
+    {
+        validate_jvm();
+        return formatter::to_json(java_api::instance().get_system_property("java.version") );
+    });
 
-    routes.add_path("getJMXvalue", new get_jmx_handler());
+    getJMXvalue.set_handler(new get_jmx_handler());
 
-    routes.add_path("setJMXvalue", new set_jmx_handler());
+    setJMXvalue.set_handler(new set_jmx_handler());
 
-    function_handler* mbean_list =
-            new function_handler(
-                    [](const_req req)
-                    {
-                        validate_jvm();
-                        return formatter::to_json(java_api::instance().get_all_mbean() );
-                    }, "json");
-    routes.add_path("getMbeanList", mbean_list);
+    getMbeanList.set_handler("json", [](const_req req)
+    {
+        validate_jvm();
+        return formatter::to_json(java_api::instance().get_all_mbean() );
+    });
 
-    function_handler* gc_info_handler =
-            new function_handler(
-                    [](const_req req)
-                    {
-                        validate_jvm();
-                        vector<MemoryManager> res;
-                        std::vector<gc_info> gc_collection = java_api::instance().get_all_gc();
-                        for (gc_info gc: gc_collection) {
-                            res.push_back(MemoryManager());
-                            res.back().count = gc.count;
-                            res.back().time = gc.time;
-                            res.back().name = gc.name;
+    getGCinfo.set_handler("json", [](const_req req)
+    {
+        validate_jvm();
+        vector<MemoryManager> res;
+        std::vector<gc_info> gc_collection = java_api::instance().get_all_gc();
+        for (gc_info gc: gc_collection) {
+            res.push_back(MemoryManager());
+            res.back().count = gc.count;
+            res.back().time = gc.time;
+            res.back().name = gc.name;
 
-                        }
-                        return formatter::to_json(res);
-                    }, "json");
-    routes.add_path("getGCinfo", gc_info_handler);
+        }
+        return formatter::to_json(res);
+    });
 
-    function_handler* gc_handler =
-            new function_handler(
-                    [](const_req req)
-                    {
-                        validate_jvm();
-                        java_api::instance().call_gc();
-                        return "";
-                    }, "json");
-    routes.add_path("forceGC", gc_handler);
+    forceGC.set_handler("json", [](const_req req)
+    {
+        validate_jvm();
+        java_api::instance().call_gc();
+        return "";
+    });
 }
 
 }

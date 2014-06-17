@@ -123,7 +123,7 @@ public:
      * @param rep the http reply
      * @return true on success
      */
-    bool handle(const std::string& path, const http::server::request& req,
+    bool handle(const std::string& path, http::server::request& req,
                 http::server::reply& rep);
 
 private:
@@ -162,6 +162,14 @@ private:
     std::unordered_map<std::string, handler_base*> map[NUM_OPERATION];
     std::vector<match_rule*> rules[NUM_OPERATION];
 };
+
+/**
+ * A helper function that check if a parameter is found in the params object
+ * if it does not the function would throw a parameter not found exception
+ * @param params the parameters object
+ * @param param the parameter to look for
+ */
+void verify_param(const http::server::request& req, const std::string& param);
 
 }
 

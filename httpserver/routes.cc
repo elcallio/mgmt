@@ -14,6 +14,12 @@ namespace httpserver {
 
 using namespace std;
 
+void verify_param(const http::server::request& req, const std::string& param) {
+    if (req.get_query_param(param) == "") {
+        throw missing_param_exception(param);
+    }
+}
+
 routes::~routes()
 {
     for (int i = 0; i < NUM_OPERATION; i++) {
@@ -29,17 +35,19 @@ routes::~routes()
 
 }
 
-bool routes::handle(const string& path, const http::server::request& req,
+bool routes::handle(const string& path, http::server::request& req,
                     http::server::reply& rep)
 {
-    parameters params;
     string param_str;
 
     handler_base* handler = get_handler(str2type(req.method),
-                                        normalize_url(path, param_str), params);
+                                        normalize_url(path, param_str), req.param);
     if (handler != nullptr) {
         try {
-            handler->handle(path, &params, req, rep);
+            for (auto& i : handler->mandatory_param) {
+                verify_param(req, i);
+            }
+            handler->handle(path, &req.param, req, rep);
         } catch (const base_exception& e) {
             rep.content = e.what();
             rep.status = e.status();
@@ -97,6 +105,10 @@ routes& routes::add_path(const string& nick, handler_base* handler)
              << nick << endl;
         return *this;
     }
+    for (auto& i : path->mandatory_queryparams) {
+        handler->mandatory(i);
+    }
+
     if (path->params.size() == 0)
         put(path->operations.method, path->path, handler);
     else {
