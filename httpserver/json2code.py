@@ -26,7 +26,7 @@ config = parser.parse_args()
 
 
 valid_vars = {'string': 'std::string', 'int': 'int', 'double': 'double',
-             'float': 'float', 'long': 'long', 'boolean': 'bool',
+             'float': 'float', 'long': 'long', 'boolean': 'bool', 'char': 'char',
              'datetime': 'json::date_time'}
 
 current_file = ''
@@ -202,6 +202,50 @@ def create_c_file(data, cfile_name, hfile_name, init_method, api_name):
     close_namespace(cfile)
     cfile.close()
 
+def is_model_valid(name, model):
+    if name in valid_vars:
+        return ""
+    properties = model[name]["properties"]
+    for var in properties:
+        type = properties[var]["type"]
+        if type == "array":
+            type = properties[var]["items"]["type"]
+        if type not in valid_vars:
+            return type
+    valid_vars[name] = name
+    return ""
+
+def resolve_model_order(data):
+    res = []
+    models = set()
+    for model_name in data:
+        print ("model " + model_name)
+        visited = set(model_name)
+        missing = is_model_valid(model_name, data)
+        resolved = missing == ''
+        if not resolved:
+            stack = [model_name]
+            while not resolved:
+                print("resolving "+missing)
+                if missing in visited:
+                    trace_err ("Cyclic dependency found: ", missing)
+                missing_depends = is_model_valid(missing, data)
+                if missing_depends == '':
+                    if missing not in models:
+                        res.append(missing)
+                        models.add(missing)
+                    print("debug "+ missing)
+                    resolved = len(stack) == 0
+                    if not resolved:
+                        missing = stack.pop()
+                else:
+                    stack.append(missing)
+                    missing = missing_depends
+        elif model_name not in models:
+            res.append(model_name)
+            models.add(model_name)
+    return res
+
 def create_h_file(data, hfile_name, api_name, init_method):
     hfile = open(config.outdir + "/" + hfile_name, "w")
     print_h_file_headers(hfile, api_name)
@@ -210,14 +254,15 @@ def create_h_file(data, hfile_name, api_name, init_method):
     open_namespace(hfile, "httpserver")
     open_namespace(hfile)
     if "models" in data:
-        for model_name in data["models"]:
-            valid_vars[model_name] = model_name
+        models_order = resolve_model_order(data["models"])
+        for model_name in models_order:
             model = data["models"][model_name]
             if 'description' in model:
                 print_ind_comment(hfile, "", model["description"])
             fprint(hfile, "struct ", model_name, " : public json::json_base {")
             member_init = ''
             member_assignment = ''
+            member_copy = ''
             for member_name in model["properties"]:
                 member = model["properties"][member_name]
                 if "description" in member:
@@ -228,6 +273,7 @@ def create_h_file(data, hfile_name, api_name, init_method):
                 member_init += "  add(&" + member_name + ',"'
                 member_init += member_name + '");\n'
                 member_assignment += "  " + member_name + " = " + "e." + member_name + ";\n"
+                member_copy += "  e." + member_name + " = "  + member_name + ";\n"
             fprint(hfile, "void register_params() {")
             fprint(hfile, member_init)
             fprint(hfile, '}')
@@ -239,7 +285,20 @@ def create_h_file(data, hfile_name, api_name, init_method):
             fprint(hfile, '  register_params();')
             fprint(hfile, member_assignment)
             fprint(hfile, '}')
-            
+            fprint(hfile,"template<class T>")
+            fprint(hfile,model_name,"& set(const T& e) {")
+            fprint(hfile,member_assignment)
+            fprint(hfile,"  return *this;")
+            fprint(hfile,"}")
+            fprint(hfile,model_name,"& operator=(const ", model_name,"& e) {")
+            fprint(hfile,member_assignment)
+            fprint(hfile,"  return *this;")
+            fprint(hfile,"}")
+            fprint(hfile,"template<class T>")
+            fprint(hfile,model_name,"& update(T& e) {")
+            fprint(hfile,member_copy)
+            fprint(hfile,"  return *this;")
+            fprint(hfile,"}")
             fprint(hfile, "};\n\n")
 
     print_ind_comment(hfile, "", "Initialize the path")

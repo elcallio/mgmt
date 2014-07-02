@@ -35,7 +35,7 @@ routes::~routes()
 
 }
 
-bool routes::handle(const string& path, http::server::request& req,
+void routes::handle(const string& path, http::server::request& req,
                     http::server::reply& rep)
 {
     string param_str;
@@ -51,18 +51,16 @@ bool routes::handle(const string& path, http::server::request& req,
         } catch (const base_exception& e) {
             rep.content = e.what();
             rep.status = e.status();
-            handler->set_headers(rep, "http", false);
+            handler->set_headers(rep, "http");
         } catch (exception& e) {
             cerr << "exception was caught for " << path << ": " << e.what()
                  << endl;
-            handler->reply500(rep, 500, e.what());
-            return false;
+            handler->reply500(rep, e.what());
+            return;
         }
     } else {
         rep = http::server::reply::stock_reply(http::server::reply::not_found);
-        return false;
     }
-    return true;
 }
 
 std::string routes::normalize_url(const std::string& url,

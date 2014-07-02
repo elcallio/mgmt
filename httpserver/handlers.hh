@@ -40,9 +40,8 @@ public:
      * @param params optional parameter object
      * @param req the original request
      * @param rep the reply
-     * @return true if completed without any errorrs
      */
-    virtual bool handle(const std::string& path, parameters* params,
+    virtual void handle(const std::string& path, parameters* params,
                         const http::server::request& req, http::server::reply& rep) = 0;
 
     virtual ~handler_base() = default;
@@ -53,11 +52,8 @@ public:
      * @param type is the type of the message content and is equivalent to the
      *        file extension that would have been used if it was a file
      *        e.g. html, json, js
-     * @param is_ok when set to true set the rep to OK when false keep the
-     *        reply status
      */
-    virtual void set_headers(http::server::reply& rep, const std::string& type,
-                             bool is_ok = true);
+    virtual void set_headers(http::server::reply& rep, const std::string& type);
 
     /**
      * call set_headers with "html" as content type
@@ -72,8 +68,7 @@ public:
      * @param err_code the error code to use (default 404)
      * @param alternative_message alternative error message to use
      */
-    virtual void reply400(http::server::reply& rep, int err_code =
-                              http::server::reply::not_found,
+    virtual void reply400(http::server::reply& rep,
                           const std::string& alternative_message = ERROR_404_PAGE);
 
     /**
@@ -84,8 +79,7 @@ public:
      * @param err_code the error code to use (default 500)
      * @param alternative_message alternative error message to use
      */
-    virtual void reply500(http::server::reply& rep, int err_code =
-                              http::server::reply::internal_server_error,
+    virtual void reply500(http::server::reply& rep,
                           const std::string& alternative_message = ERROR_500_PAGE);
 
     /**
@@ -181,9 +175,8 @@ protected:
      * @param file the full path to a file on the disk
      * @param req the reuest
      * @param rep the reply
-     * @return true on success
      */
-    bool read(const std::string& file, const http::server::request& req,
+    void read(const std::string& file, const http::server::request& req,
               http::server::reply& rep);
     file_transformer* transformer;
 };
@@ -209,7 +202,7 @@ public:
     explicit directory_handler(const std::string& doc_root,
                                file_transformer* transformer = nullptr);
 
-    bool handle(const std::string& path, parameters* parts,
+    void handle(const std::string& path, parameters* parts,
                 const http::server::request& req, http::server::reply& rep)
     override;
 
@@ -236,7 +229,7 @@ public:
     {
     }
 
-    bool handle(const std::string& path, parameters* parts,
+    void handle(const std::string& path, parameters* parts,
                 const http::server::request& req, http::server::reply& rep)
     override;
 
@@ -282,7 +275,7 @@ public:
     {
     }
 
-    bool handle(const std::string& path, parameters* parts,
+    void handle(const std::string& path, parameters* parts,
                 const http::server::request& req, http::server::reply& rep)
     override;
 

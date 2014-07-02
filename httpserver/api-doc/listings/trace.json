@@ -137,7 +137,48 @@
                     "deprecated": "false"
                 }
             ]
-        }
+        },
+        {
+            "path": "/trace/sampler",
+            "operations": [
+                {
+                    "method": "POST",
+                    "summary": "Control sampling profiler",
+                    "responseClass": "string",
+                    "nickname": "setSamplerState",
+                    "produces": [
+                        "application/json"
+                    ],
+                    "parameters": [
+                        {
+                            "name": "freq",
+                            "description": "Frequency of sampling. Zero disables sampling.",
+                            "required": true,
+                            "allowMultiple": false,
+                            "dataType": "integer",
+                            "paramType": "query"
+                        }
+                    ],
+                    "deprecated": "false"
+                }
+            ]
+        },
+        {
+            "path": "/trace/buffers",
+            "operations": [
+                {
+                    "method": "GET",
+                    "summary": "Retrieve the trace buffer contents and associated meta data",
+                    "notes": "returns binary file in the OSv trace dump format",
+                    "responseClass": "Object",
+                    "nickname": "getTraceBuffers",
+                    "produces": [
+                        "application/octect-stream"
+                    ],
+                    "deprecated": "false"
+                }
+            ]
+        }        
     ],
     "models" : {
         "TraceEventInfo" : {

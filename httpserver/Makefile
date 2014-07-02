@@ -1,6 +1,6 @@
 
 INCLUDES = -isystem $(miscbase)/usr/include
-INCLUDES += -I../../include -I. -I../../java
+INCLUDES += -I../../include -I. -I../../java -I../../arch/$(arch) -I../..
 
 # compiler flags:
 #  -g    adds debugging information to the executable file
@@ -32,7 +32,7 @@ DEPS := $(OBJ_FILES:.o=.d)
 
 module: all swagger-ui-lib
 
-all: init $(TARGET).so
+all: init lib$(TARGET).so
 
 init:
 	$(call very-quiet, mkdir -p obj)
@@ -42,11 +42,14 @@ init:
 	$(call very-quiet, mkdir -p obj/autogen)
 	$(call very-quiet, mkdir -p autogen)
 
+stub-lib: $(STUB_FILES)
+	$(call quiet, $(CXX) $(CXXFLAGS) -shared -o $(TARGET)-stub.so $^, LINK $@)
+
 $(TARGET): $(OBJ_FILES) $(STUB_FILES)
 	$(call quiet, $(CXX) $(CXXFLAGS) -o $(TARGET) $^ $(LIBS), LINK $@)
 
-$(TARGET).so: $(OBJ_FILES)
-	$(call quiet, $(CXX) $(CXXFLAGS) -shared -o $(TARGET).so $^, LINK $@)
+lib$(TARGET).so: $(OBJ_FILES)
+	$(call quiet, $(CXX) $(CXXFLAGS) -shared -o lib$(TARGET).so $^, LINK $@)
 
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
@@ -60,7 +63,7 @@ obj/%.o: %.cc
 
 clean:
 	$(call quiet, $(RM) $(TARGET), CLEAN)
-	$(call very-quiet, $(RM) $(TARGET).so)
+	$(call very-quiet, $(RM) lib$(TARGET).so)
 	$(call very-quiet, $(RM) -rf obj/*)
 	$(call very-quiet, $(RM) -rf autogen/*)
 
